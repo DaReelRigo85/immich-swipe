@@ -27,7 +27,7 @@ function logout() {
 <template>
   <header class="flex items-center justify-between px-4 py-3">
     <div class="flex items-center gap-3">
-      <h1 class="text-xl font-bold"
+      <h1 class="text-xl font-bold sm:inline hidden"
         :class="uiStore.isDarkMode ? 'text-white' : 'text-gray-900'"
       >
         Immich Swipe
