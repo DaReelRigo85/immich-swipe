@@ -2,6 +2,7 @@ import { computed, ref, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
 import { usePreferencesStore } from '@/stores/preferences'
+import { useReviewedStore } from '@/stores/reviewed'
 import type {
   ImmichAsset,
   ImmichAlbum,
@@ -13,6 +14,7 @@ export function useImmich() {
   const authStore = useAuthStore()
   const uiStore = useUiStore()
   const preferencesStore = usePreferencesStore()
+  const reviewedStore = useReviewedStore()
 
   const currentAsset = ref<ImmichAsset | null>(null)
   const nextAsset = ref<ImmichAsset | null>(null)
@@ -21,6 +23,8 @@ export function useImmich() {
   const SKIP_VIDEOS_BATCH_SIZE = 10
   const SKIP_VIDEOS_MAX_ATTEMPTS = 5
   const CHRONO_PAGE_SIZE = 50
+  const RANDOM_BATCH_SIZE = 5
+  const RANDOM_MAX_ATTEMPTS = 20
 
   const albumsCache = ref<ImmichAlbum[] | null>(null)
 
@@ -37,6 +41,12 @@ export function useImmich() {
   }
 
   const actionHistory = ref<ReviewAction[]>([])
+
+  function isReviewable(asset: ImmichAsset): boolean {
+    if (reviewedStore.isReviewed(asset.id)) return false
+    if (uiStore.skipVideos && asset.type === 'VIDEO') return false
+    return true
+  }
 
   function resetReviewFlow() {
     chronologicalQueue.value = []
@@ -118,28 +128,22 @@ export function useImmich() {
   // Fetch a random asset
   async function fetchRandomAsset(): Promise<ImmichAsset | null> {
     try {
-      const attempts = uiStore.skipVideos ? SKIP_VIDEOS_MAX_ATTEMPTS : 1
+      const attempts = uiStore.skipVideos ? SKIP_VIDEOS_MAX_ATTEMPTS : RANDOM_MAX_ATTEMPTS
       for (let attempt = 0; attempt < attempts; attempt++) {
-        const count = uiStore.skipVideos ? SKIP_VIDEOS_BATCH_SIZE : 1
+        const count = uiStore.skipVideos ? SKIP_VIDEOS_BATCH_SIZE : RANDOM_BATCH_SIZE
         const assets = await apiRequest<ImmichAsset[]>(`/assets/random?count=${count}`)
         if (!assets || assets.length === 0) {
           continue
         }
 
-        if (!uiStore.skipVideos) {
-          return assets[0]
-        }
-
-        const photoAsset = assets.find((asset) => asset.type !== 'VIDEO')
-        if (photoAsset) {
-          return photoAsset
-        }
+        const candidate = assets.find(isReviewable)
+        if (candidate) return candidate
       }
 
       if (uiStore.skipVideos) {
-        throw new Error('Only video assets were returned. Disable Skip Videos mode to review them.')
+        throw new Error('No unreviewed photos found after skipping videos.')
       }
-      return null
+      throw new Error('No unreviewed assets found. Clear the reviewed cache to start over.')
     } catch (e) {
       console.error('Failed to fetch random asset:', e)
       throw e
@@ -189,10 +193,7 @@ export function useImmich() {
   }
 
   async function fetchNextChronologicalAsset(): Promise<ImmichAsset | null> {
-    let attempts = 0
-
-    while (chronologicalQueue.value.length === 0 && chronologicalHasMore.value && attempts < 5) {
-      attempts++
+    while (chronologicalQueue.value.length === 0 && chronologicalHasMore.value) {
       await loadChronologicalBatch()
     }
 
@@ -217,9 +218,7 @@ export function useImmich() {
         chronologicalPage.value += 1
       }
 
-      const filtered = uiStore.skipVideos
-        ? batch.items.filter((asset) => asset.type !== 'VIDEO')
-        : batch.items
+      const filtered = batch.items.filter(isReviewable)
       chronologicalQueue.value.push(...filtered)
     } catch (e) {
       console.error('Failed to fetch chronological assets:', e)
@@ -231,9 +230,11 @@ export function useImmich() {
   }
 
   async function fetchNextAsset(): Promise<ImmichAsset | null> {
-    const pending = pendingAssets.value.shift()
-    if (pending) {
-      return pending
+    while (pendingAssets.value.length > 0) {
+      const pending = pendingAssets.value.shift()
+      if (pending && !reviewedStore.isReviewed(pending.id)) {
+        return pending
+      }
     }
     if (preferencesStore.reviewOrder !== 'random') {
       return fetchNextChronologicalAsset()
@@ -304,7 +305,7 @@ export function useImmich() {
   }
 
   function enqueuePendingAsset(asset: ImmichAsset | null): void {
-    if (!asset) return
+    if (!asset || reviewedStore.isReviewed(asset.id)) return
     pendingAssets.value = [
       asset,
       ...pendingAssets.value.filter((item) => item.id !== asset.id),
@@ -404,6 +405,7 @@ export function useImmich() {
     if (!currentAsset.value) return
     const assetToKeep = currentAsset.value
     actionHistory.value.push({ asset: assetToKeep, type: 'keep' })
+    reviewedStore.markReviewed(assetToKeep.id, 'keep')
     uiStore.incrementKept()
     uiStore.toast('Photo kept ✓', 'success', 1500)
     moveToNextAsset()
@@ -421,6 +423,7 @@ export function useImmich() {
         type: 'keepToAlbum',
         albumName: album.albumName,
       })
+      reviewedStore.markReviewed(assetToKeep.id, 'keep')
       uiStore.incrementKept()
       uiStore.toast(`Added to ${album.albumName}`, 'success', 1800)
       moveToNextAsset()
@@ -448,6 +451,7 @@ export function useImmich() {
 
       if (nextFavorite) {
         actionHistory.value.push({ asset: updatedAsset, type: 'keep' })
+        reviewedStore.markReviewed(updatedAsset.id, 'keep')
         uiStore.incrementKept()
         uiStore.toast('Favorited ✓', 'success', 1500)
         moveToNextAsset()
@@ -469,6 +473,7 @@ export function useImmich() {
 
     if (success) {
       actionHistory.value.push({ asset: assetToDelete, type: 'delete' })
+      reviewedStore.markReviewed(assetToDelete.id, 'delete')
       uiStore.incrementDeleted()
       uiStore.toast('Photo deleted', 'info', 1500)
       moveToNextAsset()
@@ -496,6 +501,7 @@ export function useImmich() {
         return
       }
 
+      reviewedStore.unmarkReviewed(lastAction.asset.id)
       uiStore.decrementDeleted()
       uiStore.toast(`${lastAction.asset.originalFileName} was restored`, 'success', 2500)
       if (preloadedAfterResume?.id !== assetToResumeAfterUndo?.id) {
@@ -505,6 +511,7 @@ export function useImmich() {
       return
     }
 
+    reviewedStore.unmarkReviewed(lastAction.asset.id)
     uiStore.decrementKept()
     if (lastAction.type === 'keepToAlbum' && lastAction.albumName) {
       uiStore.toast(`Back to photo (in ${lastAction.albumName})`, 'info', 2000)

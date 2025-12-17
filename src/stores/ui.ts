@@ -1,7 +1,9 @@
 import { defineStore } from 'pinia'
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useAuthStore } from '@/stores/auth'
 
 export const useUiStore = defineStore('ui', () => {
+  const authStore = useAuthStore()
   // Dark mode state - persisted to localStorage
   const isDarkMode = ref<boolean>(true)
   const skipVideos = ref<boolean>(false)
@@ -61,9 +63,49 @@ export const useUiStore = defineStore('ui', () => {
     }, duration)
   }
 
-  // Stats
+  // Stats (persisted per user/server)
   const keptCount = ref<number>(0)
   const deletedCount = ref<number>(0)
+  const statsInitialized = ref(false)
+  const statsStorageKey = computed(() => {
+    const server = authStore.serverUrl || 'unknown-server'
+    const user = authStore.currentUserName || 'default-user'
+    return `immich-swipe-stats:${server}:${user}`
+  })
+
+  function loadStats() {
+    statsInitialized.value = false
+    const raw = localStorage.getItem(statsStorageKey.value)
+    if (!raw) {
+      keptCount.value = 0
+      deletedCount.value = 0
+      statsInitialized.value = true
+      return
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as { keptCount?: number; deletedCount?: number }
+      keptCount.value = Number.isFinite(parsed.keptCount) ? parsed.keptCount : 0
+      deletedCount.value = Number.isFinite(parsed.deletedCount) ? parsed.deletedCount : 0
+    } catch (e) {
+      console.error('Failed to parse stats from localStorage', e)
+      keptCount.value = 0
+      deletedCount.value = 0
+    } finally {
+      statsInitialized.value = true
+    }
+  }
+
+  function persistStats() {
+    if (!statsInitialized.value) return
+    localStorage.setItem(
+      statsStorageKey.value,
+      JSON.stringify({ keptCount: keptCount.value, deletedCount: deletedCount.value })
+    )
+  }
+
+  watch(statsStorageKey, () => loadStats(), { immediate: true })
+  watch([keptCount, deletedCount, statsStorageKey], () => persistStats())
 
   function incrementKept() {
     keptCount.value++

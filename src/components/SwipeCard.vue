@@ -250,7 +250,7 @@ watch([videoBlobUrl, () => videoRef.value], async ([newUrl, video]) => {
       })
       .catch(() => {
         // Autoplay can be blocked; keep unmuted for manual play.
-        unmuteVideo()
+        // unmuteVideo()
       })
   }
 

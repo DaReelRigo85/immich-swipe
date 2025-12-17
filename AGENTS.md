@@ -25,6 +25,8 @@
 - Wichtige lokale Storage Keys:
   - Auth: `immich-swipe-config` (Server-URL + API Key)
   - UI: `immich-swipe-theme`, `immich-swipe-skip-videos`
+  - Stats: `immich-swipe-stats:<server>:<user>` (keep/delete Counter)
+  - Review-Cache: `immich-swipe-reviewed:<server>:<user>` (bereits gesehene IDs + keep/delete)
 - Security-Hinweis: `VITE_*` Variablen sind Build-Time und landen im Frontend-Bundle → `VITE_USER_*_API_KEY` nur für private Deployments/Images nutzen (nicht öffentlich publishen).
 
 ## API/Proxy/CORS (wichtigster Stolperstein)
