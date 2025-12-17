@@ -26,7 +26,8 @@ const videoError = ref(false)
 const videoLoading = ref(false)
 const videoRef = ref<HTMLVideoElement | null>(null)
 const videoAbortController = ref<AbortController | null>(null)
-const hasUserGesture = ref(false)
+const autoplayMuted = ref(true)
+let autoplayCleanup: (() => void) | null = null
 const assetApiBaseUrl = computed(() => {
   if (!authStore.immichBaseUrl) return ''
   return `${authStore.immichBaseUrl}${authStore.proxyBaseUrl}`
@@ -83,6 +84,28 @@ const deleteIndicatorOpacity = computed(() => {
 })
 
 const isVideo = computed(() => props.asset.type === 'VIDEO')
+
+function cleanupAutoplay() {
+  if (autoplayCleanup) {
+    autoplayCleanup()
+    autoplayCleanup = null
+  }
+}
+
+function setVideoMuted(video: HTMLVideoElement, muted: boolean) {
+  video.muted = muted
+  if (muted) {
+    video.setAttribute('muted', '')
+  } else {
+    video.removeAttribute('muted')
+  }
+}
+
+function configureInlinePlayback(video: HTMLVideoElement) {
+  video.playsInline = true
+  video.setAttribute('playsinline', '')
+  video.setAttribute('webkit-playsinline', '')
+}
 
 function buildAssetApiUrl(path: string): string {
   if (!assetApiBaseUrl.value) {
@@ -144,6 +167,7 @@ async function fetchImage() {
 }
 
 function cleanupVideo() {
+  cleanupAutoplay()
   if (videoAbortController.value) {
     videoAbortController.value.abort()
     videoAbortController.value = null
@@ -158,6 +182,7 @@ function cleanupVideo() {
   }
   videoError.value = false
   videoLoading.value = false
+  autoplayMuted.value = true
 }
 
 async function fetchVideo() {
@@ -213,28 +238,46 @@ watch(() => props.asset.id, () => {
   }
 }, { immediate: true })
 
-watch(videoBlobUrl, async (newUrl) => {
-  if (!newUrl || !isVideo.value) return
+watch([videoBlobUrl, () => videoRef.value], async ([newUrl, video]) => {
+  cleanupAutoplay()
+  if (!newUrl || !isVideo.value || !video) return
   await nextTick()
-  const video = videoRef.value
-  if (!video) return
-  video.muted = !hasUserGesture.value
-  try {
-    await video.play()
-  } catch {
-    // Autoplay can be blocked; controls remain available.
+  if (videoRef.value !== video || videoBlobUrl.value !== newUrl) return
+  configureInlinePlayback(video)
+  autoplayMuted.value = true
+  setVideoMuted(video, true)
+
+  const attemptAutoplay = () => {
+    if (videoRef.value !== video || videoBlobUrl.value !== newUrl) return
+    setVideoMuted(video, true)
+    autoplayMuted.value = true
+    void video.play().catch(() => {
+      // Autoplay can be blocked; controls remain available.
+    })
   }
+
+  const onReady = () => attemptAutoplay()
+  video.addEventListener('loadeddata', onReady)
+  video.addEventListener('canplay', onReady)
+  autoplayCleanup = () => {
+    video.removeEventListener('loadeddata', onReady)
+    video.removeEventListener('canplay', onReady)
+  }
+
+  attemptAutoplay()
+  requestAnimationFrame(attemptAutoplay)
 })
 
 function handleUserGesture() {
-  if (hasUserGesture.value) return
-  hasUserGesture.value = true
   const video = videoRef.value
-  if (!video) return
-  video.muted = false
+  if (!video || !isVideo.value) return
+  if (!autoplayMuted.value) return
+  autoplayMuted.value = false
+  setVideoMuted(video, false)
   video.volume = 1
-  void video.play()
-  removeUserGestureListeners()
+  void video.play().catch(() => {
+    // Ignore play errors; user can use controls.
+  })
 }
 
 function removeUserGestureListeners() {
@@ -246,9 +289,9 @@ function removeUserGestureListeners() {
 
 onMounted(() => {
   if (typeof window === 'undefined') return
-  window.addEventListener('pointerdown', handleUserGesture, { once: true })
-  window.addEventListener('touchstart', handleUserGesture, { once: true })
-  window.addEventListener('keydown', handleUserGesture, { once: true })
+  window.addEventListener('pointerdown', handleUserGesture)
+  window.addEventListener('touchstart', handleUserGesture)
+  window.addEventListener('keydown', handleUserGesture)
 })
 
 onBeforeUnmount(() => {
@@ -319,8 +362,9 @@ const formattedDate = computed(() => {
         :src="videoBlobUrl"
         class="w-full h-full object-contain"
         playsinline
+        webkit-playsinline
         autoplay
-        :muted="!hasUserGesture"
+        :muted="autoplayMuted"
         loop
         controls
       />

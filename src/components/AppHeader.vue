@@ -94,7 +94,7 @@ function toggleReviewOrder() {
           />
         </svg>
         <span>
-          {{ uiStore.skipVideos ? 'Skip videos: On' : 'Skip videos: Off' }}
+          Skip videos
         </span>
       </button>
 
