@@ -430,6 +430,36 @@ export function useImmich() {
     }
   }
 
+  async function toggleFavorite(): Promise<void> {
+    if (!currentAsset.value) return
+
+    const assetToUpdate = currentAsset.value
+    const nextFavorite = !assetToUpdate.isFavorite
+
+    try {
+      const updatedAsset = { ...assetToUpdate, isFavorite: nextFavorite }
+
+      await apiRequest(`/assets/${assetToUpdate.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ isFavorite: nextFavorite }),
+      })
+
+      currentAsset.value = updatedAsset
+
+      if (nextFavorite) {
+        actionHistory.value.push({ asset: updatedAsset, type: 'keep' })
+        uiStore.incrementKept()
+        uiStore.toast('Favorited ✓', 'success', 1500)
+        moveToNextAsset()
+      } else {
+        uiStore.toast('Removed from favorites', 'info', 1500)
+      }
+    } catch (e) {
+      console.error('Failed to update favorite:', e)
+      uiStore.toast('Failed to update favorite', 'error')
+    }
+  }
+
   // Delete
   async function deletePhoto(): Promise<void> {
     if (!currentAsset.value) return
@@ -497,6 +527,7 @@ export function useImmich() {
     loadInitialAsset,
     keepPhoto,
     keepPhotoToAlbum,
+    toggleFavorite,
     deletePhoto,
     undoLastAction,
     canUndo,

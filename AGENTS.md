@@ -38,6 +38,24 @@
   - Es gibt zusätzlich eine Nginx-Config (`nginx.conf`) mit Proxy-Location `/immich-api/` inkl. CORS-Headern. Damit das zur aktuellen Client-URL-Bildung passt, muss `VITE_SERVER_URL` i.d.R. auf `<app-origin>/immich-api` zeigen, damit der Client `/immich-api/api/...` aufruft.
 - Security-Hinweis (Proxy): `nginx.conf` erlaubt per `X-Target-Host` ein dynamisches `proxy_pass`-Ziel. Das ist funktional, kann aber als „Open Proxy/SSRF“ missbraucht werden, wenn der Reverse-Proxy öffentlich erreichbar ist.
 
+## Immich API (Erkenntnisse / relevante Endpoints)
+- Alle Requests laufen in dieser App effektiv gegen `.../api/...` (wegen `proxyBaseUrl = '/api'`) und nutzen den Header `x-api-key`.
+- Connection-Check: `GET /users/me`
+- Random Asset: `GET /assets/random?count=<n>`
+- Chronologisch: `POST /search/metadata` (Body u.a. `take`, `size`, `skip`, `order`, `assetType`)
+- Albums:
+  - `GET /albums`
+  - Asset in Album: `PUT /albums/<albumId>/assets` mit Body `{ "ids": ["<assetId>"] }`
+- Papierkorb:
+  - Löschen (Trash): `DELETE /assets` mit Body `{ "ids": ["<assetId>"], "force": false }`
+  - Restore: `POST /trash/restore/assets` mit Body `{ "ids": ["<assetId>"] }`
+- Favoriten:
+  - Toggle/Set: `PUT /assets/<assetId>` mit Body `{ "isFavorite": true|false }` (Antwort wird in der App nicht benötigt; `currentAsset.isFavorite` wird lokal aktualisiert)
+  - Optional (Bulk): `PUT /assets` mit Body `{ "ids": ["..."], "isFavorite": true|false }`
+- Asset Media:
+  - Thumbnail: `GET /assets/<assetId>/thumbnail?size=preview|thumbnail`
+  - Original: `GET /assets/<assetId>/original`
+
 ## Docker/Deployment
 - `docker-compose.yml` baut das Image und veröffentlicht Port `2293:80`.
 - Die `.env` Werte werden als **Build-Args** in den Build gebacken (siehe `Dockerfile` + `docker-compose.yml`).

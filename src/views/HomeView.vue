@@ -15,6 +15,7 @@ const {
   loadInitialAsset,
   keepPhoto,
   keepPhotoToAlbum,
+  toggleFavorite,
   deletePhoto,
   undoLastAction,
   fetchAlbums,
@@ -49,6 +50,10 @@ function handleKeydown(e: KeyboardEvent) {
   } else if (e.key === 'ArrowLeft') {
     e.preventDefault()
     deletePhoto()
+  } else if (e.key.toLowerCase() === 'f') {
+    if (shouldIgnoreHotkeys()) return
+    e.preventDefault()
+    toggleFavorite()
   } else if (/^[0-9]$/.test(e.key)) {
     if (shouldIgnoreHotkeys()) return
     const albumId = preferencesStore.albumHotkeys[e.key]
@@ -144,7 +149,7 @@ onUnmounted(() => {
           </p>
         </div>
         <button
-          @click="loadInitialAsset"
+          @click="() => loadInitialAsset()"
           class="px-6 py-2 rounded-lg transition-colors"
           :class="uiStore.isDarkMode
             ? 'bg-white text-black hover:bg-gray-200'
@@ -181,9 +186,11 @@ onUnmounted(() => {
           <ActionButtons
             v-if="currentAsset"
             :can-undo="canUndo"
+            :is-favorite="currentAsset?.isFavorite ?? false"
             @keep="keepPhoto"
             @delete="deletePhoto"
             @undo="undoLastAction"
+            @toggle-favorite="toggleFavorite"
             @open-album-picker="openAlbumPicker"
             @album-drop="openAlbumPicker"
           />
@@ -222,7 +229,7 @@ onUnmounted(() => {
               </span>
             </div>
             <p class="hidden sm:flex">
-              (←/→) • Ctrl+Z or ↑ (back) • 0–9 = album hotkeys
+              (←/→) • Ctrl+Z or ↑ (back) • F = favorite • 0–9 = album hotkeys
             </p>
           </div>
         </div>

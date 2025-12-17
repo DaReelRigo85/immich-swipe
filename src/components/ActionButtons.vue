@@ -6,12 +6,14 @@ const uiStore = useUiStore()
 defineProps<{
   canUndo: boolean
   isAlbumDragActive?: boolean
+  isFavorite?: boolean
 }>()
 
 const emit = defineEmits<{
   keep: []
   delete: []
   undo: []
+  toggleFavorite: []
   openAlbumPicker: []
   albumDrop: []
 }>()
@@ -56,6 +58,12 @@ function handleAlbumDrop(e: DragEvent) {
       </svg>
     </button>
 
+    <!-- Separator (desktop) -->
+    <div
+      class="hidden sm:block w-px h-12"
+      :class="uiStore.isDarkMode ? 'bg-gray-700' : 'bg-gray-300'"
+    ></div>
+
     <!-- Album -->
     <button
       @click="emit('openAlbumPicker')"
@@ -76,11 +84,37 @@ function handleAlbumDrop(e: DragEvent) {
       </svg>
     </button>
 
-    <!-- Separator (desktop) -->
-    <div
-      class="hidden sm:block w-px h-12"
-      :class="uiStore.isDarkMode ? 'bg-gray-700' : 'bg-gray-300'"
-    ></div>
+    <!-- Favorite -->
+    <button
+      @click="emit('toggleFavorite')"
+      class="w-16 h-16 rounded-full flex items-center justify-center transition-all active:scale-90 shadow-lg"
+      :class="[
+        uiStore.isDarkMode
+          ? (isFavorite
+              ? 'bg-amber-500 text-white'
+              : 'bg-gray-800 hover:bg-amber-600 text-amber-300')
+          : (isFavorite
+              ? 'bg-amber-500 text-white border border-amber-400'
+              : 'bg-white hover:bg-amber-500 hover:text-white text-amber-600 border border-amber-200')
+      ]"
+      aria-label="Toggle favorite"
+      :aria-pressed="isFavorite ? 'true' : 'false'"
+      :title="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
+    >
+      <svg
+        class="w-7 h-7"
+        :class="isFavorite ? 'fill-current' : 'fill-none'"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 10-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+        />
+      </svg>
+    </button>
 
     <!-- Undo -->
     <button
