@@ -1,5 +1,6 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { vi } from 'vitest'
+import type { Mock } from 'vitest'
 import { useImmich } from '@/composables/useImmich'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
@@ -61,7 +62,7 @@ describe('useImmich album flow', () => {
     await immich.keepPhotoToAlbum({ id: 'album-1', albumName: 'Family' })
 
     expect(uiStore.keptCount).toBe(1)
-    const fetchMock = fetch as unknown as vi.Mock
+    const fetchMock = fetch as unknown as Mock
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining('/albums/album-1/assets'),
       expect.objectContaining({ method: 'PUT' })
