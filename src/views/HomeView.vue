@@ -160,9 +160,9 @@ onUnmounted(() => {
       </div>
 
       <!-- Swipe area -->
-      <div v-else class="flex-1 flex flex-col min-h-0 gap-3">
+      <div v-else class="flex-1 flex flex-col min-h-0 gap-2">
         <!-- Card container -->
-        <div class="flex-1 min-h-0 flex items-center justify-center p-2">
+        <div class="flex-1 min-h-0 flex items-center justify-center p-1">
           <div v-if="currentAsset" class="w-full h-full max-w-4xl max-h-full">
             <SwipeCard
               :asset="currentAsset"
