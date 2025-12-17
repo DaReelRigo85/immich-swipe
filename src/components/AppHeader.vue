@@ -127,7 +127,11 @@ function toggleReviewOrder() {
           stroke="currentColor"
           viewBox="0 0 24 24"
         >
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4l6 6m0 0L4 16m6-6h10M20 4l-6 6m0 0 6 6m-6-6H10" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 3h5v5" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 20L21 3" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 16v5h-5" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l6 6" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4l5 5" />
         </svg>
         <svg
           v-else-if="preferencesStore.reviewOrder === 'chronological'"
