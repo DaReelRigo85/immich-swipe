@@ -236,11 +236,22 @@ watch([videoBlobUrl, () => videoRef.value], async ([newUrl, video]) => {
   video.muted = true
   video.defaultMuted = true
 
+  const unmuteVideo = () => {
+    if (videoRef.value !== video || videoBlobUrl.value !== newUrl) return
+    video.muted = false
+    video.defaultMuted = false
+  }
+
   const attemptAutoplay = () => {
     if (videoRef.value !== video || videoBlobUrl.value !== newUrl) return
-    void video.play().catch(() => {
-      // Autoplay can be blocked; controls remain available.
-    })
+    video.play()
+      .then(() => {
+        unmuteVideo()
+      })
+      .catch(() => {
+        // Autoplay can be blocked; keep unmuted for manual play.
+        unmuteVideo()
+      })
   }
 
   const onReady = () => attemptAutoplay()
