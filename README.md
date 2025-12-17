@@ -64,6 +64,13 @@ Open `http://localhost:2293`.
 
 Note: `.env` values are passed as build args and end up in the frontend bundle. Changing `.env` requires a rebuild.
 
+### GitHub Pages
+
+This repo includes a GitHub Actions workflow that builds and deploys the SPA to GitHub Pages on every push to `main`.
+
+After enabling Pages in your repo settings, your URL will be:
+- `https://<owner>.github.io/<repo>/`
+
 <details>
   <summary>Login screen</summary>
   <p align="center">
