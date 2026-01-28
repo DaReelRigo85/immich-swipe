@@ -54,6 +54,8 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+          build-args: |
+            VITE_SERVER_URL=http://192.168.0.30020
           file: Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
